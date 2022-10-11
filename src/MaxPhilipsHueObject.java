@@ -3,7 +3,7 @@ import com.cycling74.max.DataTypes;
 import com.cycling74.max.MaxObject;
 
 public class MaxPhilipsHueObject {
-  public static final String HUE_STORAGE_LOCATION = "/Users/tmaegerle/Music/Ableton/User Library/Presets/Instruments/Max Instrument/NewHueSdkMaxStorage";
+  public static final String HUE_STORAGE_LOCATION = "/Users/toad/Music/Ableton/User Library/Presets/Instruments/Max Instrument/NewHueSdkMaxStorage";
 }
 
 //public class MaxPhilipsHueObject extends MaxObject {

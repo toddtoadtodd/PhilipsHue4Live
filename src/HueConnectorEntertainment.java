@@ -41,19 +41,18 @@ import com.philips.lighting.hue.sdk.wrapper.entertainment.effect.ExplosionEffect
 import com.philips.lighting.hue.sdk.wrapper.knownbridges.KnownBridge;
 import com.philips.lighting.hue.sdk.wrapper.knownbridges.KnownBridges;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class HueConnectorEntertainment {
   static {
     // Load the huesdk native library before calling any SDK method
-    System.load("/Users/tmaegerle/Documents/Philips Hue Lights Project/PhilipsHue4Live/HueSDK/Apple/MacOS/Java/libhuesdk.dylib");
+    System.load("/Users/todd/Documents/code/PhilipsHue4Live/HueSDK/Apple/MacOS/Java/libhuesdk.dylib");
+
+    String HUE_STORAGE_LOCATION = "/Users/todd/Music/Ableton/User Library/Presets/Instruments/Max Instrument/NewHueSdkMaxStorage";
 
     // Configure the storage location and log level for the Hue SDK
-    Persistence.setStorageLocation(MaxPhilipsHueObject.HUE_STORAGE_LOCATION, "Ableton");
+    Persistence.setStorageLocation(HUE_STORAGE_LOCATION, "Ableton");
     HueLog.setConsoleLogLevel(HueLog.LogLevel.INFO);
   }
 
@@ -64,6 +63,7 @@ public class HueConnectorEntertainment {
   public Bridge bridge;
   private Entertainment entertainment;
   private Group group;
+  private boolean setupEntertainment;
 
   private BridgeDiscovery bridgeDiscovery;
 
@@ -83,22 +83,24 @@ public class HueConnectorEntertainment {
 
   // Directions for local: https://www.reddit.com/r/Hue/comments/65ui7k/how_can_i_connect_the_philips_hue_bridge_directly/
   public HueConnectorEntertainment() {
-    bridge = null;
-    entertainment = null;
+    this("169.254.8.173");
+  }
 
-    // Connect to a bridge or start the bridge discovery
-    // String bridgeIp = getLastUsedBridgeIp();
-
-    // Dayton network
-//    String bridgeIp = "10.0.1.2";
+  public HueConnectorEntertainment(String ipAddress, boolean setupEntertainment) {
+    this.bridge = null;
+    this.entertainment = null;
+    this.setupEntertainment = setupEntertainment;
 
     // Local connection
-    String bridgeIp = "169.254.8.173";
-    if (bridgeIp == null) {
+    if (ipAddress == null) {
       startBridgeDiscovery();
     } else {
-      connectToBridge(bridgeIp);
+      connectToBridge(ipAddress);
     }
+  }
+
+  public HueConnectorEntertainment(String ipAddress) {
+    this(ipAddress, true);
   }
 
   /**
@@ -129,8 +131,8 @@ public class HueConnectorEntertainment {
 
     bridgeDiscovery = new BridgeDiscoveryImpl();
     // ALL Include [UPNP, IPSCAN, NUPNP, MDNS] but in some nets UPNP, NUPNP and MDNS is not working properly
-    bridgeDiscovery.search(BridgeDiscovery.Option.ALL, bridgeDiscoveryCallback);
-
+    // bridgeDiscovery.search(BridgeDiscovery.Option.ALL, bridgeDiscoveryCallback);
+    bridgeDiscovery.search(bridgeDiscoveryCallback);
     updateUI(UIState.BridgeDiscoveryRunning, "Scanning the network for hue bridges...");
   }
 
@@ -156,7 +158,8 @@ public class HueConnectorEntertainment {
       if (returnCode == BridgeDiscovery.ReturnCode.SUCCESS) {
         bridgeDiscoveryResults = results;
 
-        updateUI(UIState.BridgeDiscoveryResults, "Found " + results.size() + " bridge(s) in the network.");
+        List<String> ips = results.stream().map(BridgeDiscoveryResult::getIp).collect(Collectors.toList());
+        updateUI(UIState.BridgeDiscoveryResults, "Found " + results.size() + " bridge(s) in the network, with IP's: " + ips + ".");
       } else if (returnCode == BridgeDiscovery.ReturnCode.STOPPED) {
         System.out.println(TAG + " - Bridge discovery stopped.");
       } else {
@@ -168,7 +171,7 @@ public class HueConnectorEntertainment {
   /**
    * Use the BridgeBuilder to create a bridge instance and connect to it
    */
-  private void connectToBridge(String bridgeIp) {
+  public void connectToBridge(String bridgeIp) {
     stopBridgeDiscovery();
     disconnectFromBridge();
 
@@ -176,7 +179,7 @@ public class HueConnectorEntertainment {
         .setIpAddress(bridgeIp)
         .setConnectionType(BridgeConnectionType.LOCAL)
         .setBridgeConnectionCallback(bridgeConnectionCallback)
-        .addBridgeStateUpdatedCallback(bridgeStateUpdatedCallback)
+        .addBridgeStateUpdatedCallback(createBridgeStateUpdatedCallback())
         .build();
 
     bridge.connect();
@@ -241,28 +244,33 @@ public class HueConnectorEntertainment {
   /**
    * The callback the receives bridge state update events
    */
-  private BridgeStateUpdatedCallback bridgeStateUpdatedCallback = new BridgeStateUpdatedCallback() {
-    @Override
-    public void onBridgeStateUpdated(Bridge bridge, BridgeStateUpdatedEvent bridgeStateUpdatedEvent) {
-      System.out.println(TAG + " - Bridge state updated event: " + bridgeStateUpdatedEvent);
+  private BridgeStateUpdatedCallback createBridgeStateUpdatedCallback() {
+    final boolean setupEntertainment = this.setupEntertainment;
+    return new BridgeStateUpdatedCallback() {
+      @Override
+      public void onBridgeStateUpdated(Bridge bridge, BridgeStateUpdatedEvent bridgeStateUpdatedEvent) {
+        System.out.println(TAG + " - Bridge state updated event: " + bridgeStateUpdatedEvent);
 
-      switch (bridgeStateUpdatedEvent) {
-        case INITIALIZED:
-          // The bridge state was fully initialized for the first time.
-          // It is now safe to perform operations on the bridge state.
-          updateUI(UIState.Connected, "Connected!");
-          setupEntertainment();
-          break;
+        switch (bridgeStateUpdatedEvent) {
+          case INITIALIZED:
+            // The bridge state was fully initialized for the first time.
+            // It is now safe to perform operations on the bridge state.
+            updateUI(UIState.Connected, "Connected!");
+            if (setupEntertainment) {
+              setupEntertainment();
+            }
+            break;
 
-        case LIGHTS_AND_GROUPS:
-          // At least one light was updated.
-          break;
+          case LIGHTS_AND_GROUPS:
+            // At least one light was updated.
+            break;
 
-        default:
-          break;
+          default:
+            break;
+        }
       }
-    }
-  };
+    };
+  }
 
 //  /**
 //   * Randomize the color of all lights in the bridge
@@ -301,16 +309,19 @@ public class HueConnectorEntertainment {
    * Refresh the username in case it was created before entertainment was available
    */
   private void setupEntertainment() {
-    bridge.refreshUsername(new BridgeResponseCallback() {
-      @Override
-      public void handleCallback(Bridge bridge, ReturnCode returnCode, List<ClipResponse> responses, List<HueError> errors) {
-        if (returnCode == ReturnCode.SUCCESS) {
-          setupEntertainmentGroup();
-        } else {
-          // ...
-        }
-      }
-    });
+    updateUI(null, "MADE IT HERE A");
+    setupEntertainmentGroup();
+    // Having this in the callback broke everything ??
+//    bridge.refreshUsername(new BridgeResponseCallback() {
+//      @Override
+//      public void handleCallback(Bridge bridge, ReturnCode returnCode, List<ClipResponse> responses, List<HueError> errors) {
+//        if (returnCode == ReturnCode.SUCCESS) {
+//          setupEntertainmentGroup();
+//        } else {
+//          // ...
+//        }
+//      }
+//    });
   }
 
   /**
@@ -320,8 +331,11 @@ public class HueConnectorEntertainment {
     // look for an existing entertainment group
 
     List<Group> groups = bridge.getBridgeState().getGroups();
+    updateUI(null, "THIS MANY GROUPS FOUND: " + groups.size());
     for (Group group : groups) {
+      updateUI(null, "THIS IS THE GROUP NAME -- " + group.getName());
       if (group.getGroupType() == GroupType.ENTERTAINMENT) {
+        updateUI(null, "THIS IS THE ENTERTAINMENT GROUP NAME -- " + group.getName());
         this.group = group;
         createEntertainmentObject(group.getIdentifier());
         return;
@@ -464,12 +478,12 @@ public class HueConnectorEntertainment {
     effect.addArea(new Area(topLeftX, topLeftY, bottomRightX, bottomRightY, "Test", false));
     Color c = getColorFrom255RgbBrightness(r, g, b, brightness);
     effect.setFixedColor(c);
-    effect.setFixedOpacity(1.0);
+    // effect.setFixedOpacity(1.0);
     effect.enable();
 
-    entertainment.lockMixer();
-    entertainment.addEffect(effect);
-    entertainment.unlockMixer();
+      entertainment.lockMixer();
+      entertainment.addEffect(effect);
+      entertainment.unlockMixer();
   }
 
 //  public void draw(double topLeftX, double topLeftY, double bottomRightX, double bottomRightY,
@@ -570,14 +584,13 @@ public class HueConnectorEntertainment {
   }
 
   public static Color getColorFrom255RgbBrightness(double r, double g, double b, double brightness) {
-    double maxColor = Math.max(Math.max(r, g), b);
-    double fraction = maxColor == 0 ? 0 : 1.0 / maxColor;
     double brightnessCoefficient = brightness / 255.0;
-    double r2 = r * fraction * brightnessCoefficient;
-    double g2 = g * fraction * brightnessCoefficient;
-    double b2 = b * fraction * brightnessCoefficient;
-    //System.out.println("red: " + r2 + ", green: " + g2 + ", blue: " + b2);
-    return new Color(r2, g2, b2);
+    Color color = new Color(r, g, b);
+    color.applyBrightness(brightnessCoefficient);
+    return color;
+
+//    System.out.println("red: " + r2 + ", green: " + g2 + ", blue: " + b2);
+//    return new Color(r2, g2, b2);
   }
 
   public void turnAreaOff() {

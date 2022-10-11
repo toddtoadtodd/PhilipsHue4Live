@@ -1,8 +1,12 @@
+import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import com.cycling74.max.Atom;
 import com.cycling74.max.DataTypes;
 import com.cycling74.max.MaxObject;
 
@@ -10,10 +14,13 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class MaxPhilipsHueEntertainmentObject extends MaxObject {
   public static final String HUE_STORAGE_LOCATION = "/Users/tmaegerle/Music/Ableton/User Library/Presets/Instruments/Max Instrument/NewHueSdkMaxStorage";
+
+
+
   private HueConnectorEntertainment hue;
 
   // inlets
-  Number[] inletVals;
+  Object[] inletVals;
   private enum Inlet {
     DUMMY,
     TOP_LEFT_X,
@@ -35,7 +42,10 @@ public class MaxPhilipsHueEntertainmentObject extends MaxObject {
     ANIMATION_AFFECT_SINGLE_RANDOM_LIGHT,
     ANIMATION_RED,
     ANIMATION_GREEN,
-    ANIMATION_BLUE
+    ANIMATION_BLUE,
+    RESET,
+    BANG_SHOULD_RESET,
+    BRIDGE_IP,
   }
 
   private static final int[] INLET_TYPES = new int[] {
@@ -60,6 +70,9 @@ public class MaxPhilipsHueEntertainmentObject extends MaxObject {
       DataTypes.INT,
       DataTypes.INT,
       DataTypes.INT,
+      DataTypes.INT,
+      DataTypes.INT,
+      DataTypes.MESSAGE,
   };
 
   private enum AnimationType {
@@ -76,8 +89,10 @@ public class MaxPhilipsHueEntertainmentObject extends MaxObject {
   private static final int RENDER_PERIOD_MS = 38;
 
   public MaxPhilipsHueEntertainmentObject() {
-    hue = new HueConnectorEntertainment();
-    inletVals = new Number[INLET_TYPES.length];
+
+
+//    hue = new HueConnectorEntertainment();
+    inletVals = new Object[INLET_TYPES.length];
     // Set default values
     for (int i = 0; i < INLET_TYPES.length; i++)
       inletVals[i] = 0;
@@ -85,7 +100,6 @@ public class MaxPhilipsHueEntertainmentObject extends MaxObject {
     declareInlets(INLET_TYPES);
     declareOutlets(NO_OUTLETS);
     lightsNeedRerender = true;
-    scheduleRenderCalls();
   }
 
 //  public void inlet(int input) {
@@ -95,10 +109,26 @@ public class MaxPhilipsHueEntertainmentObject extends MaxObject {
 //    inletVals[inletIndex] = input;
 //  }
 
-  public void inlet(float input) {
+//  public void inlet(float input) {
+//    int inletIndex = getInlet();
+//    updateRenderState(inletIndex);
+//    inletVals[inletIndex] = input;
+//
+//    System.out.println("INLET INPUT: " + input);
+//    System.out.println("INLET INDEX: " + inletIndex);
+//  }
+
+  public void anything(java.lang.String message, Atom[] args) {
     int inletIndex = getInlet();
     updateRenderState(inletIndex);
-    inletVals[inletIndex] = input;
+
+    if (message == "float") {
+      inletVals[inletIndex] = args[0].getFloat();
+    } else if (message == "int") {
+      inletVals[inletIndex] = args[0].getInt();
+    } else { // if (message == "text") {
+      inletVals[inletIndex] = args[0].toString(); // getString breaks for "123" or "123.45", doesn't break for "123.45.67"
+    }
   }
 
   private void updateRenderState(int index) {
@@ -117,32 +147,61 @@ public class MaxPhilipsHueEntertainmentObject extends MaxObject {
   }
 
   public void bang() {
-    CompletableFuture.runAsync(() -> {
-      runAnimation();
-    }, FX_RENDER_THREAD_POOL);
+    if (((Integer) inletVals[Inlet.BANG_SHOULD_RESET.ordinal()]) == 0) {
+      CompletableFuture.runAsync(() -> {
+        try {
+          runAnimation();
+        } catch (Exception e) {
+          e.printStackTrace();
+        }
+      }, FX_RENDER_THREAD_POOL);
+    } else {
+      post("DEBUG: BANG B");
+      String bridgeIp = (String) inletVals[Inlet.BRIDGE_IP.ordinal()];
+
+      if (isValidInet4Address(bridgeIp)) {
+        post("CONNECTING TO BRIDGE AT IP: " + bridgeIp);
+        if (hue == null) {
+          scheduleRenderCalls();
+          hue = new HueConnectorEntertainment(bridgeIp);
+        } else {
+
+          try {
+            RENDER_THREAD_POOL.shutdown();
+            Thread.sleep(500);
+          } catch (InterruptedException e) {
+            e.printStackTrace();
+          }
+
+          hue.connectToBridge(bridgeIp);
+          scheduleRenderCalls();
+        }
+      }
+    }
   }
 
   private void runAnimation() {
-    boolean singleRandomLight = inletVals[Inlet.ANIMATION_AFFECT_SINGLE_RANDOM_LIGHT.ordinal()].intValue() == 1;
-    final AnimationType animationType = AnimationType.values()[inletVals[Inlet.ANIMATION_TYPE.ordinal()].intValue()];
+    if (hue == null) return;
+    boolean singleRandomLight = ((Integer) inletVals[Inlet.ANIMATION_AFFECT_SINGLE_RANDOM_LIGHT.ordinal()]) == 1;
+    final AnimationType animationType = AnimationType.values()[(Integer) inletVals[Inlet.ANIMATION_TYPE.ordinal()]];
     if (singleRandomLight) {
       switch (animationType) {
         case STROBE:
           hue.strobeRandomLight(
-              inletVals[Inlet.ANIMATION_TIME.ordinal()].floatValue(),
-              inletVals[Inlet.ANIMATION_RED.ordinal()].intValue(),
-              inletVals[Inlet.ANIMATION_GREEN.ordinal()].intValue(),
-              inletVals[Inlet.ANIMATION_BLUE.ordinal()].intValue(),
-              inletVals[Inlet.ANIMATION_BRIGHTNESS.ordinal()].intValue()
+              (Float) inletVals[Inlet.ANIMATION_TIME.ordinal()],
+              (Float) inletVals[Inlet.ANIMATION_RED.ordinal()],
+              (Float) inletVals[Inlet.ANIMATION_GREEN.ordinal()],
+              (Float) inletVals[Inlet.ANIMATION_BLUE.ordinal()],
+              (Float) inletVals[Inlet.ANIMATION_BRIGHTNESS.ordinal()]
           );
           break;
         case COOLDOWN_STROBE:
           hue.cooldownStrobeRandomLight(
-              inletVals[Inlet.ANIMATION_TIME.ordinal()].floatValue(),
-              inletVals[Inlet.ANIMATION_RED.ordinal()].intValue(),
-              inletVals[Inlet.ANIMATION_GREEN.ordinal()].intValue(),
-              inletVals[Inlet.ANIMATION_BLUE.ordinal()].intValue(),
-              inletVals[Inlet.ANIMATION_BRIGHTNESS.ordinal()].intValue()
+              (Float) inletVals[Inlet.ANIMATION_TIME.ordinal()],
+              (Float) inletVals[Inlet.ANIMATION_RED.ordinal()],
+              (Float) inletVals[Inlet.ANIMATION_GREEN.ordinal()],
+              (Float) inletVals[Inlet.ANIMATION_BLUE.ordinal()],
+              (Float) inletVals[Inlet.ANIMATION_BRIGHTNESS.ordinal()]
           );
           break;
         default:
@@ -152,28 +211,28 @@ public class MaxPhilipsHueEntertainmentObject extends MaxObject {
       switch (animationType) {
         case STROBE:
           hue.strobe(
-              inletVals[Inlet.ANIMATION_TIME.ordinal()].floatValue(),
-              inletVals[Inlet.ANIMATION_TOP_LEFT_X.ordinal()].floatValue(),
-              inletVals[Inlet.ANIMATION_TOP_LEFT_Y.ordinal()].floatValue(),
-              inletVals[Inlet.ANIMATION_BOTTOM_RIGHT_X.ordinal()].floatValue(),
-              inletVals[Inlet.ANIMATION_BOTTOM_RIGHT_Y.ordinal()].floatValue(),
-              inletVals[Inlet.ANIMATION_RED.ordinal()].intValue(),
-              inletVals[Inlet.ANIMATION_GREEN.ordinal()].intValue(),
-              inletVals[Inlet.ANIMATION_BLUE.ordinal()].intValue(),
-              inletVals[Inlet.ANIMATION_BRIGHTNESS.ordinal()].intValue()
+              (Float) inletVals[Inlet.ANIMATION_TIME.ordinal()],
+              (Float) inletVals[Inlet.ANIMATION_TOP_LEFT_X.ordinal()],
+              (Float) inletVals[Inlet.ANIMATION_TOP_LEFT_Y.ordinal()],
+              (Float) inletVals[Inlet.ANIMATION_BOTTOM_RIGHT_X.ordinal()],
+              (Float) inletVals[Inlet.ANIMATION_BOTTOM_RIGHT_Y.ordinal()],
+              (Float) inletVals[Inlet.ANIMATION_RED.ordinal()],
+              (Float) inletVals[Inlet.ANIMATION_GREEN.ordinal()],
+              (Float) inletVals[Inlet.ANIMATION_BLUE.ordinal()],
+              (Float) inletVals[Inlet.ANIMATION_BRIGHTNESS.ordinal()]
           );
           break;
         case COOLDOWN_STROBE:
           hue.cooldownStrobe(
-              inletVals[Inlet.ANIMATION_TIME.ordinal()].floatValue(),
-              inletVals[Inlet.ANIMATION_TOP_LEFT_X.ordinal()].floatValue(),
-              inletVals[Inlet.ANIMATION_TOP_LEFT_Y.ordinal()].floatValue(),
-              inletVals[Inlet.ANIMATION_BOTTOM_RIGHT_X.ordinal()].floatValue(),
-              inletVals[Inlet.ANIMATION_BOTTOM_RIGHT_Y.ordinal()].floatValue(),
-              inletVals[Inlet.ANIMATION_RED.ordinal()].intValue(),
-              inletVals[Inlet.ANIMATION_GREEN.ordinal()].intValue(),
-              inletVals[Inlet.ANIMATION_BLUE.ordinal()].intValue(),
-              inletVals[Inlet.ANIMATION_BRIGHTNESS.ordinal()].intValue()
+                  (Float) inletVals[Inlet.ANIMATION_TIME.ordinal()],
+                  (Float) inletVals[Inlet.ANIMATION_TOP_LEFT_X.ordinal()],
+                  (Float) inletVals[Inlet.ANIMATION_TOP_LEFT_Y.ordinal()],
+                  (Float) inletVals[Inlet.ANIMATION_BOTTOM_RIGHT_X.ordinal()],
+                  (Float) inletVals[Inlet.ANIMATION_BOTTOM_RIGHT_Y.ordinal()],
+                  (Float) inletVals[Inlet.ANIMATION_RED.ordinal()],
+                  (Float) inletVals[Inlet.ANIMATION_GREEN.ordinal()],
+                  (Float) inletVals[Inlet.ANIMATION_BLUE.ordinal()],
+                  (Float) inletVals[Inlet.ANIMATION_BRIGHTNESS.ordinal()]
           );
           break;
         default:
@@ -182,30 +241,56 @@ public class MaxPhilipsHueEntertainmentObject extends MaxObject {
     }
   }
 
-  private void printAllInlets() {
-    StringBuilder res = new StringBuilder();
-    for (int i = 0; i < inletVals.length; i++) {
-      res.append((Inlet.values())[i] + ": " + String.format("%.2f", inletVals[i].floatValue()) + "\n");
-    }
-    System.out.println(res);
-  }
+//  private void printAllInlets() {
+//    StringBuilder res = new StringBuilder();
+//    for (int i = 0; i < inletVals.length; i++) {
+//      res.append((Inlet.values())[i] + ": " + String.format("%.2f", (Float) inletVals[i]) + "\n");
+//    }
+//    System.out.println(res);
+//  }
 
   private void scheduleRenderCalls() {
     RENDER_THREAD_POOL.scheduleAtFixedRate(() -> {
-        if (inletVals[Inlet.RENDER.ordinal()].intValue() == 1 && lightsNeedRerender) {
+        boolean shouldLog = Math.random() < 1.0 / (38 * 5);
+        if (shouldLog) {
+          post("SCHEDULE RENDER CALL");
+          post("Lights need rerender: " + lightsNeedRerender);
+        }
+        if (hue != null && (Integer) inletVals[Inlet.RENDER.ordinal()] == 1 && lightsNeedRerender) {
+          if (shouldLog) {
+            post("hue: " + hue);
+          }
           lightsNeedRerender = false;
-          hue.setColorForArea(
-              inletVals[Inlet.TOP_LEFT_X.ordinal()].floatValue(),
-              inletVals[Inlet.TOP_LEFT_Y.ordinal()].floatValue(),
-              inletVals[Inlet.BOTTOM_RIGHT_X.ordinal()].floatValue(),
-              inletVals[Inlet.BOTTOM_RIGHT_Y.ordinal()].floatValue(),
-              inletVals[Inlet.RED.ordinal()].intValue(),
-              inletVals[Inlet.GREEN.ordinal()].intValue(),
-              inletVals[Inlet.BLUE.ordinal()].intValue(),
-              inletVals[Inlet.BRIGHTNESS.ordinal()].intValue()
-          );
+          try {
+            hue.setColorForArea(
+                    (Float) inletVals[Inlet.TOP_LEFT_X.ordinal()],
+                    (Float) inletVals[Inlet.TOP_LEFT_Y.ordinal()],
+                    (Float) inletVals[Inlet.BOTTOM_RIGHT_X.ordinal()],
+                    (Float) inletVals[Inlet.BOTTOM_RIGHT_Y.ordinal()],
+                    (Float) inletVals[Inlet.RED.ordinal()],
+                    (Float) inletVals[Inlet.GREEN.ordinal()],
+                    (Float) inletVals[Inlet.BLUE.ordinal()],
+                    (Float) inletVals[Inlet.BRIGHTNESS.ordinal()]
+            );
+          } catch (Exception e) {
+            e.printStackTrace();
+          }
         }
     }, RENDER_INIT_DELAY_MS, RENDER_PERIOD_MS, MILLISECONDS);
+  }
+
+  private static final String IPV4_REGEX =
+          "^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\." +
+                  "(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\." +
+                  "(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\." +
+                  "(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$";
+  private static final Pattern IPv4_PATTERN = Pattern.compile(IPV4_REGEX);
+  private static boolean isValidInet4Address(String ip) {
+    if (ip == null) {
+      return false;
+    }
+    Matcher matcher = IPv4_PATTERN.matcher(ip);
+    return matcher.matches();
   }
 
 }
