@@ -47,9 +47,10 @@ import java.util.stream.Collectors;
 public class HueConnectorEntertainment {
   static {
     // Load the huesdk native library before calling any SDK method
-    System.load("/Users/todd/Documents/code/PhilipsHue4Live/HueSDK/Apple/MacOS/Java/libhuesdk.dylib");
+//    System.load("/Users/todd/Documents/code/PhilipsHue4Live/HueSDK/Apple/MacOS/Java/libhuesdk.dylib");
+    System.load("C:\\Users\\toddm\\code\\PhilipsHue4Live\\HueSDK\\Windows\\huesdk.dll");
 
-    String HUE_STORAGE_LOCATION = "/Users/todd/Music/Ableton/User Library/Presets/Instruments/Max Instrument/NewHueSdkMaxStorage";
+    String HUE_STORAGE_LOCATION = "C:\\Users\\toddm\\Music\\Ableton\\User Library\\Presets\\Instruments\\Max Instrument\\NewHueSdkMaxStorage";
 
     // Configure the storage location and log level for the Hue SDK
     Persistence.setStorageLocation(HUE_STORAGE_LOCATION, "Ableton");

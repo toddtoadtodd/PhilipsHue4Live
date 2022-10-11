@@ -13,9 +13,6 @@ import com.cycling74.max.MaxObject;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class MaxPhilipsHueEntertainmentObject extends MaxObject {
-  public static final String HUE_STORAGE_LOCATION = "/Users/tmaegerle/Music/Ableton/User Library/Presets/Instruments/Max Instrument/NewHueSdkMaxStorage";
-
-
 
   private HueConnectorEntertainment hue;
 
