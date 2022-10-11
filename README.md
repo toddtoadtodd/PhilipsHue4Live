@@ -13,7 +13,7 @@ max.system.jar.dir /Users/todd/Documents/code/PhilipsHue4Live/HueSDK/Apple/MacOS
 max.system.class.dir /Users/todd/Documents/code/PhilipsHue4Live/out/production/PhilipsHue4Live
 
 (Windows)
-max.system.jar.dir C:\Users\toddm\code\PhilipsHue4Live\HueSDK\Windows
-max.system.class.dir C:\Users\toddm\code\PhilipsHue4Live\out\production\PhilipsHue4Live
+max.system.jar.dir C:\\Users\\toddm\\code\\PhilipsHue4Live\\HueSDK\\Windows
+max.system.class.dir C:\\Users\\toddm\\code\\PhilipsHue4Live\\out\\production\\PhilipsHue4Live
 
 
