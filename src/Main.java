@@ -110,11 +110,11 @@ public class Main {
     private static final String GROUP_NAME = "Yufi";
 
     public static void main(String[] args) throws Exception {
-        HueConnectorEntertainment h = new HueConnectorEntertainment(IP_ADDRESS, false);
-        Thread.sleep(10000);
-        setLightToRandomColor(h.bridge, "19");
+//        HueConnectorEntertainment h = new HueConnectorEntertainment(IP_ADDRESS, false);
+//        Thread.sleep(10000);
+//        setLightToRandomColor(h.bridge, "19");
 
-//        printAllBridgeIpsOnNetwork();
+        printAllBridgeIpsOnNetwork();
 //        System.out.println("Before:");
 //        printAllDeviceIds(h.bridge);
 //        setupLights(h.bridge);
