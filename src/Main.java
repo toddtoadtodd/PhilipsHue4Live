@@ -1,19 +1,12 @@
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
-import javax.swing.JFrame;
-import javax.swing.JLabel;
 
 import com.philips.lighting.hue.sdk.wrapper.connection.BridgeConnectionType;
 import com.philips.lighting.hue.sdk.wrapper.connection.BridgeResponseCallback;
-import com.philips.lighting.hue.sdk.wrapper.connection.BridgeStateCacheType;
 import com.philips.lighting.hue.sdk.wrapper.domain.Bridge;
 import com.philips.lighting.hue.sdk.wrapper.domain.DomainType;
 import com.philips.lighting.hue.sdk.wrapper.domain.ReturnCode;
-import com.philips.lighting.hue.sdk.wrapper.domain.SupportedFeature;
 import com.philips.lighting.hue.sdk.wrapper.domain.device.Device;
-import com.philips.lighting.hue.sdk.wrapper.domain.device.DeviceState;
 import com.philips.lighting.hue.sdk.wrapper.domain.device.light.LightConfiguration;
 import com.philips.lighting.hue.sdk.wrapper.domain.device.light.LightPoint;
 import com.philips.lighting.hue.sdk.wrapper.domain.device.light.LightState;
@@ -27,7 +20,7 @@ public class Main {
 
     private static class LightInfo {
         LightPositionLabel label; // Position on Yufi stage
-        String lightId; // Assigned by bridge when discovered
+        String lightId; // DEPRECATED Assigned by bridge when discovered
         String serialNumber; // Written on bulb
         double xPos; // For hue entertainment
         double yPos; // For hue entertainment
@@ -41,20 +34,39 @@ public class Main {
         }
     }
 
+    // 800 Lumen Light Info
+//    private static final LightInfo[] LIGHTS = {
+//            new LightInfo(LightPositionLabel.F1, "21", "0ABC6F", -1,-1),
+//            new LightInfo(LightPositionLabel.F2, "20", "5F3C99", -0.66,-0.66),
+//            new LightInfo(LightPositionLabel.F3, "19", "AFB212", 0.66,-0.66),
+//            new LightInfo(LightPositionLabel.F4, "22", "63672A", 1,-1),
+//
+//            new LightInfo(LightPositionLabel.M1, "18", "019B2C", -0.33,-0.33),
+//            new LightInfo(LightPositionLabel.M2, "16", "16A756", 0, 0),
+//            new LightInfo(LightPositionLabel.M3, "31", "E5E923", 0.33,-0.33),
+//
+//            new LightInfo(LightPositionLabel.B1, "12", "5A7E3A", -0.25,1),
+//            new LightInfo(LightPositionLabel.B2, "14", "1E7EFB", 0,1),
+//            new LightInfo(LightPositionLabel.B3, "11", "9DC479", 0.25,1)
+//    };
+
+    // 1600 Lumen lights
     private static final LightInfo[] LIGHTS = {
-            new LightInfo(LightPositionLabel.F1, "21", "0ABC6F", -1,-1),
-            new LightInfo(LightPositionLabel.F2, "20", "5F3C99", -0.66,-0.66),
-            new LightInfo(LightPositionLabel.F3, "19", "AFB212", 0.66,-0.66),
-            new LightInfo(LightPositionLabel.F4, "22", "63672A", 1,-1),
+            new LightInfo(LightPositionLabel.F1, "??", "9543D5", -1,-1),
+            new LightInfo(LightPositionLabel.F2, "??", "A4040A", -0.66,-0.66),
+            new LightInfo(LightPositionLabel.F3, "??", "B9619B", 0.66,-0.66),
+            new LightInfo(LightPositionLabel.F4, "??", "C0D1E6", 1,-1),
 
-            new LightInfo(LightPositionLabel.M1, "18", "019B2C", -0.33,-0.33),
-            new LightInfo(LightPositionLabel.M2, "16", "16A756", 0, 0),
-            new LightInfo(LightPositionLabel.M3, "31", "E5E923", 0.33,-0.33),
+            new LightInfo(LightPositionLabel.M1, "??", "4E2451", -0.33,-0.33),
+            new LightInfo(LightPositionLabel.M2, "??", "66C4FF", 0, 0),
+            new LightInfo(LightPositionLabel.M3, "??", "CA120B", 0.33,-0.33),
 
-            new LightInfo(LightPositionLabel.B1, "12", "5A7E3A", -0.25,1),
-            new LightInfo(LightPositionLabel.B2, "14", "1E7EFB", 0,1),
-            new LightInfo(LightPositionLabel.B3, "11", "9DC479", 0.25,1)
+            new LightInfo(LightPositionLabel.B1, "??", "17C14B", -0.25,1),
+            new LightInfo(LightPositionLabel.B2, "??", "35F67A", 0,1),
+            new LightInfo(LightPositionLabel.B3, "??", "D5D92E", 0.25,1)
     };
+
+
 
     static LightInfo getLightInfo(LightPositionLabel label) {
         for (LightInfo light : LIGHTS) {
@@ -106,13 +118,16 @@ public class Main {
     private static final int MAX_HUE = 65535;
 
     // IP when connected to router directly: 192.168.111.222
+    // Upstairs IP when connected directly: 169.254.13.121
     private static final String IP_ADDRESS = "192.168.111.222"; // "192.168.0.22"
+    // Neck house IP address: 169.254.13.121
     private static final String GROUP_NAME = "Yufi";
 
     public static void main(String[] args) throws Exception {
-//        HueConnectorEntertainment h = new HueConnectorEntertainment(IP_ADDRESS, false);
-//        Thread.sleep(10000);
+        HueConnectorEntertainment h = new HueConnectorEntertainment(IP_ADDRESS, false);
+        Thread.sleep(5000);
 //        setLightToRandomColor(h.bridge, "19");
+
 
         printAllBridgeIpsOnNetwork();
 //        System.out.println("Before:");
@@ -127,8 +142,8 @@ public class Main {
 //        setLightLocations(h.bridge);
 //        setupSingleLight(h.bridge, LightPositionLabel.M3);
 //        turnLightOnThenOff(h.bridge, "11", 2);
-//        turnEachLightOnThenOffToFindId(h.bridge);
-//        configureEntertainmentGroup(h.bridge);
+//        turnEachLightOnThenOffToFindId(h.bridge, 20);
+        configureEntertainmentGroup(h.bridge);
 //        allOnAllOff(h);
 
 
@@ -142,13 +157,18 @@ public class Main {
         Thread.sleep(100000);
     }
 
-    private static void turnEachLightOnThenOffToFindId(Bridge b) throws Exception {
+    private static void turnEachLightOnThenOffToFindId(Bridge b, int minId) throws Exception {
         List<Device> lights = b.getBridgeState().getDevices(DomainType.LIGHT_POINT);
         for (Device light : lights) {
+            if (Integer.parseInt(light.getIdentifier()) < minId) continue;
             System.out.println("TURNING ON AND OFF LIGHT WITH ID: " + light.getIdentifier());
             turnLightOnThenOff(b, light.getIdentifier(), 2);
             Thread.sleep(1000);
         }
+    }
+
+    private static void turnEachLightOnThenOffToFindId(Bridge b) throws Exception {
+        turnEachLightOnThenOffToFindId(b, 0);
     }
 
     private static void turnLightOnThenOff(Bridge b, String lightId, int numTimes) throws Exception {
@@ -262,6 +282,7 @@ public class Main {
 
     private static void configureEntertainmentGroup(Bridge bridge) {
         final Group group = getEntertainmentGroup(bridge);
+        Map<LightPositionLabel, String> positions2Ids = getIdsForStageNameLights(bridge);
         if (group != null) {
             System.out.println("FOUND ENTERTAINMENT GROUP WITH NAME: " + GROUP_NAME);
         } else {
@@ -273,7 +294,7 @@ public class Main {
 
         // Update to reflect LIGHTS array
 //        group.setLightIds(Arrays.stream(LIGHTS).map(li -> li.lightId).collect(Collectors.toList()));
-        group.setLightLocations(Arrays.stream(LIGHTS).map(Main::lightInfo2GroupLightLocation).collect(Collectors.toList()));
+        group.setLightLocations(Arrays.stream(LIGHTS).map(l -> lightInfo2GroupLightLocation(l, positions2Ids)).collect(Collectors.toList()));
         bridge.updateResource(group, BridgeConnectionType.LOCAL, new BridgeResponseCallback() {
             @Override
             public void handleCallback(Bridge bridge, ReturnCode returnCode, List responses, List errors) {
@@ -287,13 +308,31 @@ public class Main {
         });
     }
 
-    private static GroupLightLocation lightInfo2GroupLightLocation(LightInfo li) {
+    private static GroupLightLocation lightInfo2GroupLightLocation(LightInfo li, Map<LightPositionLabel, String> lightPosition2Id) {
         GroupLightLocation loc = new GroupLightLocation();
-        loc.setLightIdentifier(li.lightId);
+        loc.setLightIdentifier(lightPosition2Id.get(li.label));
         loc.setX(li.xPos);
         loc.setY(li.yPos);
         loc.setZ(new Double(0));
         return loc;
+    }
+
+    private static Map<LightPositionLabel, String> getIdsForStageNameLights(Bridge b) {
+        List<Device> lights = b.getBridgeState().getDevices(DomainType.LIGHT_POINT);
+        Map<LightPositionLabel, String> result = new HashMap<>();
+        for (Device light : lights) {
+            for (LightPositionLabel label : LightPositionLabel.values()) {
+                String posName = label.name();
+                if (light.getName().contains(("(" + posName + ")"))) {
+                    if (result.containsKey(label)) {
+                        throw new IllegalStateException("Multiple lights with name including " + posName);
+                    }
+                    result.put(label, light.getIdentifier());
+                    break;
+                }
+            }
+        }
+        return result;
     }
 
     private static void printGroupInfo(Group g) {
